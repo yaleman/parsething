@@ -2,6 +2,7 @@ use std::io::{BufRead, Read};
 
 use crate::prelude::*;
 
+/// This is the "first" header of a GGUF file, which gives us details of what's to come.
 #[derive(PackedStruct, Debug)]
 #[packed_struct(bit_numbering = "msb0", size_bytes = "20", endian = "lsb")]
 pub struct GgufHeader {
@@ -11,12 +12,6 @@ pub struct GgufHeader {
     tensor_count: u64,
     #[packed_field(bytes = "12..=19")]
     metadata_kv_count: u64,
-}
-
-pub enum GgufParseError {
-    InvalidHeader,
-    UnsupportedVersion,
-    CorruptedData,
 }
 
 #[repr(u32)]
@@ -108,19 +103,12 @@ impl TryFrom<u32> for GgmlType {
 #[repr(u32)]
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum GgufMetadataValueType {
-    // The value is a 8-bit unsigned integer.
     Uint8 = 0,
-    // The value is a 8-bit signed integer.
     Int8 = 1,
-    // The value is a 16-bit unsigned little-endian integer.
     Uint16 = 2,
-    // The value is a 16-bit signed little-endian integer.
     Int16 = 3,
-    // The value is a 32-bit unsigned little-endian integer.
     Uint32 = 4,
-    // The value is a 32-bit signed little-endian integer.
     Int32 = 5,
-    // The value is a 32-bit IEEE754 floating point number.
     Float32 = 6,
     // The value is a boolean.
     // 1-byte value where 0 is false and 1 is true.
@@ -235,6 +223,7 @@ impl From<(GgufMetadataValueType, &Vec<u8>)> for GgufMetaValue {
     }
 }
 
+/// The main GGUF header structure
 pub struct Gguf {
     pub header: GgufHeader,
     pub metadata: HashMap<String, GgufMetaValue>,
