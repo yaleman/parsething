@@ -189,36 +189,32 @@ pub enum GgufMetaValue {
     Array(Vec<GgufMetaValue>),
 }
 
-impl From<(GgufMetadataValueType, &Vec<u8>)> for GgufMetaValue {
-    fn from((value_type, data): (GgufMetadataValueType, &Vec<u8>)) -> Self {
+impl TryFrom<(GgufMetadataValueType, &Vec<u8>)> for GgufMetaValue {
+    type Error = ParseError;
+    fn try_from((value_type, data): (GgufMetadataValueType, &Vec<u8>)) -> Result<Self, ParseError> {
         match value_type {
-            GgufMetadataValueType::Bool => GgufMetaValue::Bool(data[0] != 0),
-            GgufMetadataValueType::Int8 => GgufMetaValue::Int(data[0] as i8 as i64),
-            GgufMetadataValueType::Int16 => {
-                let val = i16::from_le_bytes([data[0], data[1]]);
-                GgufMetaValue::Int(val as i64)
-            }
-            GgufMetadataValueType::Int32 => {
-                let val = i32::from_le_bytes([data[0], data[1], data[2], data[3]]);
-                GgufMetaValue::Int(val as i64)
-            }
-            GgufMetadataValueType::Int64 => {
-                let val = i64::from_le_bytes([
-                    data[0], data[1], data[2], data[3], data[4], data[5], data[6], data[7],
-                ]);
-                GgufMetaValue::Int(val)
-            }
-            GgufMetadataValueType::Float32 => {
-                let val = f32::from_le_bytes([data[0], data[1], data[2], data[3]]);
-                GgufMetaValue::Float(val as f64)
-            }
-            GgufMetadataValueType::Float64 => {
-                let val = f64::from_le_bytes([
-                    data[0], data[1], data[2], data[3], data[4], data[5], data[6], data[7],
-                ]);
-                GgufMetaValue::Float(val)
-            }
-            _ => GgufMetaValue::Binary(data.to_vec()),
+            GgufMetadataValueType::Bool => Ok(GgufMetaValue::Bool(
+                *data.iter().next().ok_or(ParseError::InvalidData)? != 0,
+            )),
+            GgufMetadataValueType::Int8 => Ok(GgufMetaValue::Int(
+                *data.iter().next().ok_or(ParseError::InvalidData)? as i8 as i64,
+            )),
+            GgufMetadataValueType::Int16 => Ok(GgufMetaValue::Int(i16::from_le_bytes(
+                data.as_slice().try_into()?,
+            ) as i64)),
+            GgufMetadataValueType::Int32 => Ok(GgufMetaValue::Int(i32::from_le_bytes(
+                data.as_slice().try_into()?,
+            ) as i64)),
+            GgufMetadataValueType::Int64 => Ok(GgufMetaValue::Int(i64::from_le_bytes(
+                data.as_slice().try_into()?,
+            ))),
+            GgufMetadataValueType::Float32 => Ok(GgufMetaValue::Float(f32::from_le_bytes(
+                data.as_slice().try_into()?,
+            ) as f64)),
+            GgufMetadataValueType::Float64 => Ok(GgufMetaValue::Float(f64::from_le_bytes(
+                data.as_slice().try_into()?,
+            ))),
+            _ => Ok(GgufMetaValue::Binary(data.to_vec())),
         }
     }
 }
@@ -260,7 +256,7 @@ fn read_scalar(
     reader
         .read_exact(&mut data)
         .map_err(|_err| ParseError::NeedMoreBytes)?;
-    Ok(GgufMetaValue::from((value_type, &data)))
+    GgufMetaValue::try_from((value_type, &data))
 }
 
 fn read_value(
@@ -397,7 +393,6 @@ fn test_gguf_header_parsing() {
         ("ggml-vocab-llama.gguf", 17, 0);
     let testdata =
         std::fs::read(format!("test_data/gguf/{filename}")).expect("Failed to read test GGUF file");
-    eprintln!("bytes: {:?}", &testdata[0..24]);
     let mut cursor = std::io::Cursor::new(testdata);
 
     let gguf = Gguf::parse(&mut cursor).expect("Failed to parse GGUF header");

@@ -1,3 +1,16 @@
+#![deny(warnings)]
+#![warn(unused_extern_crates)]
+#![deny(clippy::todo)]
+#![deny(clippy::unimplemented)]
+#![deny(clippy::unwrap_used)]
+#![deny(clippy::expect_used)]
+#![deny(clippy::panic)]
+#![deny(clippy::unreachable)]
+#![deny(clippy::await_holding_lock)]
+#![deny(clippy::needless_pass_by_value)]
+#![deny(clippy::trivially_copy_pass_by_ref)]
+#![deny(clippy::indexing_slicing)]
+
 use std::{io::BufRead, string::FromUtf8Error};
 
 pub mod gguf;
@@ -13,6 +26,12 @@ pub enum ParseError {
     InvalidUtf8(FromUtf8Error),
     /// We tried to read more bytes than were available.
     NeedMoreBytes,
+}
+
+impl From<std::array::TryFromSliceError> for ParseError {
+    fn from(_err: std::array::TryFromSliceError) -> Self {
+        ParseError::InvalidData
+    }
 }
 
 impl From<FromUtf8Error> for ParseError {
